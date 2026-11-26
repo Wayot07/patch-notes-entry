@@ -3,7 +3,7 @@
 // The out dir defaults to /output (the grader's sandbox path); pass a
 // different directory as the first argument when running locally.
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 
@@ -46,6 +46,14 @@ function main(): void {
   // exactly the one line, byte for byte, every run.
   const outPath = join(outDir, "entry.txt");
   writeFileSync(outPath, PATCH_NOTE, "utf8");
+
+  // Read-back verification: re-read what was just written and compare it
+  // byte-for-byte with the intended line, so a silent write failure
+  // (truncated/partial/corrupt output) is caught instead of shipped.
+  const written = readFileSync(outPath);
+  if (!written.equals(Buffer.from(PATCH_NOTE, "utf8"))) {
+    throw new Error(`read-back mismatch: ${outPath} does not match the entry`);
+  }
 
   const sha256 = createHash("sha256").update(PATCH_NOTE, "utf8").digest("hex");
   console.log(`wrote ${outPath} (${codePointLength(PATCH_NOTE)} chars, sha256 ${sha256})`);
